@@ -7,3 +7,4 @@ out/
 *.iml
 .vscode/
 libs/bbs-*.jar
+tools/local.ps1

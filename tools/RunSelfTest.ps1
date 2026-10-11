@@ -1,6 +1,7 @@
 # Runs the built BBS Voice jar inside the real isolated PCL installation
-# (D:\minecraft\.minecraft\versions\BBS), so the mod can be smoke tested against the real
-# BBS 2.3 / Minecraft 1.20.4 runtime.
+# (an isolated PCL installation, one version folder per pack), so the mod can be smoke tested
+# against the real BBS 2.3 / Minecraft 1.20.4 runtime. Point it at your own installation with
+# -MinecraftDir, $env:BBSVOICE_MC, or tools\local.ps1 (git-ignored).
 #
 #   (default)      headless-ish self test: -Dbbsvoice.selftest=1, waits for bbsvoice-selftest.txt,
 #                  then kills the client. Result lands in versions/BBS/bbsvoice-selftest.txt
@@ -10,7 +11,9 @@
 # The classpath is far longer than the Windows command line limit, so every JVM
 # argument is handed over through a java @argfile.
 param(
-    [string]$ModJar = 'D:\ku\traecode\ai-mc-mod\BBS Voice\build\libs\bbsvoice-1.0.0-1.20.4.jar',
+    [string]$ModJar,
+    [string]$MinecraftDir = $env:BBSVOICE_MC,
+    [string]$VersionName = 'BBS',
     [int]$TimeoutSeconds = 300,
     [switch]$Interactive
 )
@@ -18,8 +21,21 @@ param(
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 
-$mc  = 'D:\minecraft\.minecraft'
-$ver = Join-Path $mc 'versions\BBS'
+# Machine specific paths may live in tools\local.ps1 (git-ignored), e.g.
+#   $MinecraftDir = 'C:\path\to\.minecraft'
+$localConfig = Join-Path $PSScriptRoot 'local.ps1'
+if (Test-Path $localConfig) { . $localConfig }
+
+if (-not $ModJar) {
+    $ModJar = Join-Path (Split-Path $PSScriptRoot -Parent) 'build\libs\bbsvoice-1.0.0-1.20.4.jar'
+}
+if (-not $MinecraftDir) { $MinecraftDir = Join-Path $env:APPDATA '.minecraft' }
+if (-not (Test-Path $MinecraftDir)) {
+    throw "Minecraft directory not found: $MinecraftDir - pass -MinecraftDir, set `$env:BBSVOICE_MC, or put it in tools\local.ps1"
+}
+
+$mc  = $MinecraftDir
+$ver = Join-Path $mc "versions\$VersionName"
 $log = Join-Path $ver 'logs\latest.log'
 $report = Join-Path $ver 'bbsvoice-selftest.txt'
 $argsFile = Join-Path (Split-Path $ModJar -Parent) '..\java-args.txt'

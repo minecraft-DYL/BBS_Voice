@@ -247,13 +247,14 @@ BBS 是第三方分支、Modrinth 上没有对应坐标，而且这个文件是 
 文件名按 `gradle.properties` 里的 `bbs_version=2.3` 命名：
 
 ```powershell
-copy '<路径>' 'libs\bbs-2.3-1.20.4.jar'
+copy '<你的整合包目录>\mods\bbs-2.3.1-1.20.4.jar' 'libs\bbs-2.3-1.20.4.jar'
 ```
 
 在目标整合包里跑一次真机自检（开发用）：
 
 ```powershell
-powershell -File tools/RunSelfTest.ps1 -ModJar '<路径>'
+# -MinecraftDir 指向你自己的 .minecraft（也可以设 $env:BBSVOICE_MC，或写进 git-ignored 的 tools\local.ps1）
+powershell -File tools/RunSelfTest.ps1 -MinecraftDir '<你的 .minecraft 目录>'
 # 装进 versions/BBS/mods，带 -Dbbsvoice.selftest=1 启动，自检完写 bbsvoice-selftest.txt 并自动退出
 ```
 
