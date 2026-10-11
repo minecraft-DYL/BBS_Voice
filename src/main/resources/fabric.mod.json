@@ -1,0 +1,30 @@
+{
+	"schemaVersion": 1,
+	"id": "bbsvoice",
+	"version": "${version}",
+	"name": "BBS Voice",
+	"description": "BBS mod addon that adds voice-over tracks to the film timeline: AI dubbing rendered with the Microsoft Edge speech service, or your own microphone recording, with 14 voices, volume/pace/pitch curves, emotion presets and fit-to-clip speed up.",
+	"authors": [
+		"BBS Voice"
+	],
+	"license": "MIT",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.bbsvoice.BBSVoiceMod"
+		],
+		"bbs-addon": [
+			"com.bbsvoice.BBSVoiceMod"
+		],
+		"client": [
+			"com.bbsvoice.client.BBSVoiceClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.15.0",
+		"minecraft": "~1.20.4",
+		"java": ">=17",
+		"fabric-api": "*",
+		"bbs": ">=2.2-1.20.4"
+	}
+}

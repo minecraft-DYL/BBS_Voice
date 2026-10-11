@@ -1,0 +1,111 @@
+plugins {
+	id 'fabric-loom' version '1.15.5'
+	id 'maven-publish'
+}
+
+version = project.mod_version + "-" + project.minecraft_version
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+repositories {
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = "Modrinth"
+				url = "https://api.modrinth.com/maven"
+			}
+		}
+		filter {
+			includeGroup "maven.modrinth"
+		}
+	}
+}
+
+/*
+ * jlayer is the pure Java mp3 decoder that turns what EdgeTTS streams (mp3 - the service only offers
+ * mp3 or WebM/Opus, measured) into the PCM BBS can play. It is embedded into the mod jar below rather
+ * than declared as a runtime dependency, because Fabric cannot nest a plain library jar and asking
+ * users to drop a second jar into mods/ is not something people would get right.
+ */
+configurations {
+	embed
+}
+
+dependencies {
+	// To change the versions see the gradle.properties file
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+	/* BBS mod - the host mod this addon plugs into.
+	 * Pinned to the exact jar from the target installation (BBS FS fork, 2.3-1.20.4) so that the
+	 * compiled addon matches what the user actually runs. The 2.2 jar disappeared from libs/ when the
+	 * installation was upgraded, which broke the build until this was bumped to match. */
+	modImplementation files("libs/bbs-${project.bbs_version}.jar")
+
+	/* mp3 decoding for the EdgeTTS backend (LGPL-2.1; embedded into the jar by the `jar` task). */
+	implementation files("libs/jlayer-${project.jlayer_version}.jar")
+	embed files("libs/jlayer-${project.jlayer_version}.jar")
+
+	/* Pure Java unit tests for the EdgeTTS request/cache key and the SSML layer (no Minecraft needed). */
+	testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.10.2"
+}
+
+processResources {
+	inputs.property "version", project.version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": project.version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 17
+	it.options.encoding = "UTF-8"
+}
+
+java {
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_17
+	targetCompatibility = JavaVersion.VERSION_17
+}
+
+test {
+	useJUnitPlatform()
+	testLogging {
+		events "passed", "skipped", "failed"
+		showStandardStreams = true
+	}
+}
+
+jar {
+	from("LICENSE") {
+		rename { "${it}_${project.base.archivesName.get()}" }
+	}
+
+	/* jlayer, shaded in. Signature files are dropped: a leftover .SF from a signed jar makes the
+	 * Fabric loader refuse the whole mod as tampered. */
+	from(configurations.embed.collect { it.isDirectory() ? it : zipTree(it) }) {
+		exclude "META-INF/MANIFEST.MF"
+		exclude "META-INF/*.SF"
+		exclude "META-INF/*.DSA"
+		exclude "META-INF/*.RSA"
+	}
+}
+
+publishing {
+	publications {
+		mavenJava(MavenPublication) {
+			from components.java
+		}
+	}
+	repositories {
+	}
+}
