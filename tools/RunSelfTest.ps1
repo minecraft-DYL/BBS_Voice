@@ -38,18 +38,34 @@ $mc  = $MinecraftDir
 $ver = Join-Path $mc "versions\$VersionName"
 $log = Join-Path $ver 'logs\latest.log'
 $report = Join-Path $ver 'bbsvoice-selftest.txt'
+
+# The version profile lives beside the version folder in PCL isolated installs
+# (<name>.json / <name>.jar / <name>-natives). Reading the name out of -VersionName instead of
+# hardcoding "BBS" is what lets this script smoke test a second Minecraft version (26.3).
+$versionJsonPath = Join-Path $ver "$VersionName.json"
+$clientJar = Join-Path $ver "$VersionName.jar"
+$nativesDir = Join-Path $ver "$VersionName-natives"
+if (-not (Test-Path $versionJsonPath)) { throw "Version profile not found: $versionJsonPath (pass -VersionName)" }
+$versionJson = Get-Content $versionJsonPath -Raw | ConvertFrom-Json
+$assetIndex = if ($versionJson.assetIndex -and $versionJson.assetIndex.id) { $versionJson.assetIndex.id } else { '12' }
+
 $argsFile = Join-Path (Split-Path $ModJar -Parent) '..\java-args.txt'
 $argsFile = [System.IO.Path]::GetFullPath($argsFile)
 
 if (-not (Test-Path $ModJar)) { throw "Mod jar not found: $ModJar (build it first)" }
 
-# --- locate a Java 17/21 runtime (the version profile asks for 17) -------------------
+# --- locate the Java runtime the profile asks for -----------------------------------
+# 1.20.4 wants Java 17, 26.3 wants Java 25 - take it from the profile rather than guessing.
+$javaMajor = 17
+if ($versionJson.javaVersion -and $versionJson.javaVersion.majorVersion) { $javaMajor = [int]$versionJson.javaVersion.majorVersion }
 $java = $null
 foreach ($candidate in @(
-    'C:\Program Files\Zulu\zulu-17\bin\java.exe',
-    'C:\Program Files\Zulu\zulu-21\bin\java.exe'
+    "C:\Program Files\Zulu\zulu-$javaMajor\bin\java.exe",
+    'C:\Program Files\Zulu\zulu-25\bin\java.exe',
+    'C:\Program Files\Zulu\zulu-21\bin\java.exe',
+    'C:\Program Files\Zulu\zulu-17\bin\java.exe'
 )) {
-    if (Test-Path $candidate) { $java = $candidate; break }
+    if (Test-Path $candidate) { $java = $candidate; Write-Host "java: $candidate (profile asks for $javaMajor)"; break }
 }
 if (-not $java) {
     $java = (Get-ChildItem 'C:\Program Files' -Recurse -Filter java.exe -ErrorAction SilentlyContinue |
@@ -59,14 +75,15 @@ if (-not $java) { throw 'No Java runtime found' }
 
 # --- install the mod (purely additive, delete this one file to uninstall) ----------
 $modsDir = Join-Path $ver 'mods'
-Copy-Item $ModJar (Join-Path $modsDir 'bbsvoice-1.0.0-1.20.4.jar') -Force
+# Any older BBS Voice jar goes first: two jars with the same mod id make Fabric refuse to start.
+Get-ChildItem $modsDir -Filter 'bbsvoice-*.jar' -ErrorAction SilentlyContinue | Remove-Item -Force
+Copy-Item $ModJar (Join-Path $modsDir (Split-Path $ModJar -Leaf)) -Force
 Write-Host "installed $(Split-Path $ModJar -Leaf) -> $modsDir"
 
 # --- classpath: exactly the libraries this version declares, + BBS.jar + mods -------
 # (recursing the whole libraries folder would drag in 728 jars from other Minecraft
 #  versions and versions of log4j/asm that fight each other)
 $librariesRoot = Join-Path $mc 'libraries'
-$versionJson = Get-Content (Join-Path $ver 'BBS.json') -Raw | ConvertFrom-Json
 $libJars = @()
 
 # Some entries (fabric-loader, mixin, asm, intermediary) only carry a maven coordinate.
@@ -103,7 +120,7 @@ $mods = $allMods | Where-Object { $_.Name -match '^[\x20-\x7E]+$' -and $_.Name -
 $skipped = $allMods | Where-Object { $_.Name -notmatch '^[\x20-\x7E]+$' -or $_.Name -match ' ' }
 
 $cp = @(
-    (Join-Path $ver 'BBS.jar')
+    $clientJar
     ($libJars | Where-Object { Test-Path $_ })
     ($mods | Select-Object -ExpandProperty FullName)
 ) -join ';'
@@ -113,7 +130,7 @@ Write-Host "classpath jars: $((($cp -split ';').Count))  (skipped $($skipped.Cou
 Write-Host "loader on classpath: $([bool]($cp -match 'fabric-loader'))"
 $skipped | ForEach-Object { Write-Host "  skipped: $($_.Name)" }
 
-$natives = (Join-Path $ver 'BBS-natives').Replace('\', '/')
+$natives = $nativesDir.Replace('\', '/')
 
 $arguments = @(
     "-Djava.library.path=$natives",
@@ -133,10 +150,10 @@ $arguments += @(
     '-DFabricMcEmu=',
     $versionJson.mainClass,
     '--username', 'SelfTest',
-    '--version', 'BBS',
+    '--version', $VersionName,
     '--gameDir', ($ver.Replace('\', '/')),
     '--assetsDir', ((Join-Path $mc 'assets').Replace('\', '/')),
-    '--assetIndex', '12',
+    '--assetIndex', $assetIndex,
     '--uuid', '00000000000000000000000000000000',
     '--accessToken', '0',
     '--clientId', '0',

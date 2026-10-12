@@ -234,3 +234,38 @@ BBS 的 `AudioReader` 只认 `.wav`（WaveReader）和 `.ogg`（仅 Vorbis），
 * ❌ 不做逐句多请求拼接（能突破 2 个 `<prosody>` 的限制，但会把一次请求变成 N 次，
   还要处理拼接接缝和部分失败；当前合并成 2 组的方案在 1–2 句的常见情况下本来就是精确的）
 * ❌ 不做 macOS/Linux 兜底（删掉自研合成器后没有第二个引擎，统一走 Edge）
+
+---
+
+## 附录 A · 后续变更
+
+### A.1 合成端点迁移（2026-10-12）
+
+第 3 章那四条硬约束是 2026-10-11 实测的，其中一条在一天之后就变了——**端点**。
+
+`speech.platform.bing.com/.../readaloud/edge/v1` 从 2026-10 起对**合成** websocket 返回 `403`
+（先是大多数国家，2026-10-12 起美国也一样），而**同一台机器上 `voices/list` 仍然返回 `200`**
+（不带令牌则 `401`）。Microsoft Edge 155 改走：
+
+```
+wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1?Ocp-Apim-Subscription-Key=<同一个公开令牌>
+```
+
+令牌没变，只是参数名从 `TrustedClientToken` 改成 `Ocp-Apim-Subscription-Key`；
+`Sec-MS-GEC` 与 `Sec-MS-GEC-Version` 继续沿用，`speech.config` → `ssml` → mp3 分片 → `turn.end`
+的会话流程和 mp3 容器也都没变。所以这次迁移只动了 `EdgeTtsClient.ENDPOINT` 与查询参数一行。
+
+排障判据（全部实测）：403 且 `content-length: 0`、无 body；换 Java 17/21 同样 403（排除 JDK）；
+`voices/list` 返回 200（排除网络与令牌）。上游 `rany2/edge-tts` 的 PR #491 在同一天给出相同结论。
+另外 `EdgeTtsClient` 现在会把该状态码写进异常信息——此前它只打印
+`java.net.http.WebSocketHandshakeException` 这个类名，等于没报。
+
+### A.2 移植到 Minecraft 26.3（2026-10-12）
+
+同一份源码出了第二个 jar（`fabric-26.3` 分支）。26.3 起游戏不再混淆，构建与源码口径都变了：
+没有 `mappings` 一行、依赖用 `implementation` 而不是 `modImplementation`、Java 25、
+Loom 插件 id 换成 `net.fabricmc.fabric-loom`，MC 类型要写官方名
+（`Minecraft` / `gameDirectory` / `stop()`）。
+
+**`tts/` 一行未改**——它没有 Minecraft 依赖（见第 2 章那句"整条 `tts/` 都没有 Minecraft 依赖"），
+所以两条分支能直接共用，真机自检 30 项在 26.3 上同样跑通。
