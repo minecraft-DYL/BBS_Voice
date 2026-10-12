@@ -11,6 +11,12 @@
  *   - a browser User-Agent.
  * Drop any one of the three and the upgrade comes back 403 Forbidden.
  *
+ * Synthesis moved host in October 2026: speech.platform.bing.com started answering the synthesis
+ * websocket with 403 (in most countries first, and in the US from 12 October 2026), while Edge 155
+ * synthesizes through api.msedgeservices.com and hands the same client token over as
+ * Ocp-Apim-Subscription-Key. The voice list is still served by the legacy host, so only synthesis
+ * moved. Verified: the legacy synthesis URL 403s while the legacy voices URL answers 200.
+ *
  * Because the standard WebSocket API cannot set those headers, the handshake is done by hand over
  * tls and the framing is implemented here. That also makes this file the reference for the Java
  * port, which can use java.net.http.WebSocket.Builder.header(...) instead.
@@ -100,12 +106,12 @@ function makeFrameParser(onMessage) {
 
 const ssml = fs.readFileSync(ssmlFile, 'utf8');
 const cid = crypto.randomUUID().replace(/-/g, '');
-const path = '/consumer/speech/synthesize/readaloud/edge/v1'
-  + `?TrustedClientToken=${TRUSTED}&Sec-MS-GEC=${secMsGec()}&Sec-MS-GEC-Version=1-${CHROMIUM}&ConnectionId=${cid}`;
+const path = '/tts/cognitiveservices/websocket/v1'
+  + `?Ocp-Apim-Subscription-Key=${TRUSTED}&Sec-MS-GEC=${secMsGec()}&Sec-MS-GEC-Version=1-${CHROMIUM}&ConnectionId=${cid}`;
 
 const request = [
   `GET ${path} HTTP/1.1`,
-  'Host: speech.platform.bing.com',
+  'Host: api.msedgeservices.com',
   'Connection: Upgrade',
   'Upgrade: websocket',
   'Sec-WebSocket-Version: 13',
@@ -125,7 +131,7 @@ const chunks = [];
 let metas = 0;
 let bytesIn = 0;
 
-const sock = tls.connect({ host: 'speech.platform.bing.com', servername: 'speech.platform.bing.com', port: 443 }, () => {
+const sock = tls.connect({ host: 'api.msedgeservices.com', servername: 'api.msedgeservices.com', port: 443 }, () => {
   sock.write(request);
 });
 

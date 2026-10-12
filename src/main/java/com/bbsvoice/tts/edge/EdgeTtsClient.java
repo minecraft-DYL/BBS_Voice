@@ -4,7 +4,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpResponse;
 import java.net.http.WebSocket;
+import java.net.http.WebSocketHandshakeException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
@@ -38,8 +40,20 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public final class EdgeTtsClient
 {
-    /** Edge read-aloud endpoint. */
-    public static final String ENDPOINT = "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1";
+    /**
+     * Edge read-aloud synthesis endpoint.
+     *
+     * <p>Since October 2026 the legacy host ({@code speech.platform.bing.com}) answers the synthesis
+     * websocket with {@code 403} in most countries, and from 12 October 2026 in the US as well - which
+     * is why the same code that worked the day before started failing everywhere at once. Microsoft
+     * Edge 155 synthesizes through this host instead. It accepts the legacy client token too, but named
+     * {@code Ocp-Apim-Subscription-Key} rather than {@code TrustedClientToken}, and it still honours the
+     * legacy {@code Sec-MS-GEC} parameters.</p>
+     *
+     * <p>Only synthesis moved: the voice list is still served by the legacy host (verified - it answers
+     * 200 there and 401 without a token, while the same token is refused on the old synthesis URL).</p>
+     */
+    public static final String ENDPOINT = "wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1";
 
     /** Origin the endpoint expects; a Chromium extension id, not a secret. */
     public static final String ORIGIN = "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold";
@@ -72,7 +86,7 @@ public final class EdgeTtsClient
         String muid = randomHex(16).toUpperCase(java.util.Locale.ROOT);
 
         URI uri = URI.create(ENDPOINT
-            + "?TrustedClientToken=" + SecMsGec.TRUSTED_CLIENT_TOKEN
+            + "?Ocp-Apim-Subscription-Key=" + SecMsGec.TRUSTED_CLIENT_TOKEN
             + "&Sec-MS-GEC=" + SecMsGec.generate()
             + "&Sec-MS-GEC-Version=1-" + SecMsGec.CHROMIUM_VERSION
             + "&ConnectionId=" + connectionId);
@@ -154,9 +168,25 @@ public final class EdgeTtsClient
         return out.toString();
     }
 
+    /**
+     * A bare {@link WebSocketHandshakeException} prints as nothing but its own class name, which tells
+     * whoever is reading the log nothing at all - and "the upgrade was refused" is the failure users
+     * actually hit, because this endpoint answers 403 as soon as it dislikes the client token or one of
+     * the headers. So the handshake's HTTP status is pulled out of the response and reported.
+     */
     private static String describe(Throwable throwable)
     {
         Throwable cause = unwrap(throwable);
+
+        if (cause instanceof WebSocketHandshakeException)
+        {
+            HttpResponse<?> response = ((WebSocketHandshakeException) cause).getResponse();
+
+            if (response != null)
+            {
+                return "HTTP " + response.statusCode() + " - the Edge speech service refused the websocket upgrade";
+            }
+        }
 
         return cause == null ? String.valueOf(throwable) : cause.toString();
     }
