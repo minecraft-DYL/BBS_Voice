@@ -1,6 +1,6 @@
 # BBS Voice · 人声轨道
 
-给 **BBS mod**（Minecraft 1.20.4 / Fabric）加一种新的轨道：**人声轨道**。
+给 **BBS mod**（Minecraft 1.20.4 与 26.3，Fabric）加一种新的轨道：**人声轨道**。
 输入一句台词，mod 会用 **微软 Edge 的在线语音**把它合成出来，像剪辑软件的 AI 配音一样贴在时间轴上，并且：
 
 * **14 个配音人物**：普通话 6 个（晓晓/晓伊/云希/云健/云扬/云夏）、方言 2 个（东北话/陕西话）、
@@ -18,19 +18,22 @@
 
 ## 1. 环境要求
 
-| 组件 | 版本 |
-| --- | --- |
-| Minecraft | 1.20.4 |
-| Fabric Loader | ≥ 0.15.0 |
-| Fabric API | 任意 1.20.4 版本 |
-| BBS mod | **2.3（1.20.4）** |
-| Java | ≥ 17 |
-| 网络 | 合成时需要能访问 `speech.platform.bing.com`（国内一般直连可用） |
+同一个仓库维护两条产品线，各出一个 jar，**按你的游戏版本二选一**：
+
+| 组件 | 1.20.4 版 | 26.3 版 |
+| --- | --- | --- |
+| Minecraft | 1.20.4 | 26.3 |
+| Fabric Loader | ≥ 0.15.0 | ≥ 0.19.5 |
+| Fabric API | 任意 1.20.4 版本 | ≥ 0.162.0+26.3 |
+| BBS mod | **2.3（1.20.4）** | **2.3.2（26.3）** |
+| Java | ≥ 17 | **≥ 25** |
+| 网络 | 合成需要能访问 `api.msedgeservices.com`（微软 Edge 朗读的合成端点，2026-10 起启用；语音列表仍在旧端点） | 同左 |
 
 ## 2. 安装
 
 1. 把 Fabric Loader + Fabric API + BBS mod 装好。
-2. 把 `bbsvoice-1.0.0-1.20.4.jar` 放进 `mods/`。mp3 解码器（JLayer）已经打进这个 jar 里，不需要额外文件。
+2. 把对应版本的 jar 放进 `mods/`：**1.20.4 用 `bbsvoice-1.0-1.20.4.jar`，26.3 用 `bbsvoice-1.0-26.3.jar`**。
+   mp3 解码器（JLayer）已经打进这个 jar 里，不需要额外文件。
 3. 启动游戏。
 
 ## 3. 使用
@@ -163,7 +166,7 @@
                         ┌───────────────────────────────┘
                         ▼
                  EdgeTtsClient（java.net.http.WebSocket）
-                   wss://speech.platform.bing.com/.../readaloud/edge/v1
+                   wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1
                    Sec-MS-GEC 握手令牌 + speech.config + ssml
                         │  mp3 分片
                         ▼
@@ -173,7 +176,7 @@
                  config/bbs/assets/audio/bbsvoice/<签名>.wav
 ```
 
-### 三个必须记住的逆向结论（都是实测，不是猜的）
+### 四个必须记住的逆向结论（都是实测，不是猜的）
 
 **① 握手令牌 `Sec-MS-GEC`**：没有它，websocket 升级直接 `403`。它是
 「当前 Windows file time（100ns 刻度）向下取整到 5 分钟边界」+ 公开的 trusted client token 的
@@ -197,6 +200,23 @@ double 算、并用 double 的十进制输出**——"修正"成精确整数运�
 因此 `ProsodyPlanner` 把 ≥3 个分句合并成最多 2 组连续分组（按字数均衡），
 `SsmlBuilder` 再多一道防御：超过 2 个直接抛 `IllegalArgumentException`，而不是把一个注定被拒的
 文档发出去换回一个看不懂的 websocket 关闭码。
+
+**④ 合成端点 2026 年 10 月搬了家**：旧端点 `speech.platform.bing.com/.../readaloud/edge/v1`
+从 2026-10 起对**合成** websocket 直接返回 `403`（先是大多数国家，**10 月 12 日起美国也这样**）。
+迷惑点在于**同一台机器上语音列表端点仍然 `200`**（不带令牌则 `401`），所以"服务整体挂了"是不成立
+的判断。Edge 155 改走
+
+```
+wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1?Ocp-Apim-Subscription-Key=<同一个公开令牌>
+```
+
+客户端令牌没变，只是参数名从 `TrustedClientToken` 变成 `Ocp-Apim-Subscription-Key`，
+`Sec-MS-GEC` 系列参数照旧。上游 [rany2/edge-tts #491](https://github.com/rany2/edge-tts/pull/491)
+在同一天给出了同样结论。
+
+排障时记住两个判据，能省掉一轮瞎猜：**403 且 `content-length: 0`、无响应体**，并且
+**换 Java 17/21 跑同样 403**（本仓库两种 JDK 都验过）——那就不是本地环境、不是 JDK、也不是这次移植
+引入的问题，是端点搬家。想确认端点本身活着，用 `voices/list`：它返回 200 就说明网络与令牌都好。
 
 ### 韵律是怎么标定的（`tools/EdgeTtsProbe.java`）
 
@@ -229,33 +249,59 @@ java -Dstdout.encoding=UTF-8 -cp "build/probe;libs/jlayer-1.0.1.4.jar" EdgeTtsPr
 ## 8. 构建
 
 ```bash
-# 需要 JDK 17+（本项目用 JDK 21 构建，产物目标是 Java 17）
-# 用仓库自带的 wrapper，版本已经锁定（Gradle 9.6.1）；Loom 1.15.5 要求 Gradle ≥ 9.2，
-# 用 PATH 上的 Gradle 8.x 会在解析插件时就失败（Could not resolve net.fabricmc:fabric-loom）
-.\gradlew.bat build    # 产物： build/libs/bbsvoice-1.0.0-1.20.4.jar（含内嵌的 JLayer）
+# 分支即版本：main = 1.20.4，fabric-26.3 = 26.3。
+#
+#   main          JDK 17+   Loom 1.15.5   Gradle 9.6.1   产物 bbsvoice-1.0-1.20.4.jar
+#   fabric-26.3   JDK 25    Loom 1.18.4   Gradle 9.7.1   产物 bbsvoice-1.0-26.3.jar
+#
+# 两条分支都用仓库自带的 wrapper（版本已锁死）；用 PATH 上的 Gradle 8.x 会在解析插件时就失败。
+.\gradlew.bat build
 .\gradlew.bat test     # 66 项纯 Java 单元测试（不需要游戏、不需要联网）
 ```
 
 `gradle build` 会在 `test` 之后触发 `remapJar`；产物里已经包含 JLayer 的 81 个类文件
 （`javazoom/jl/...`），没有遗留的签名文件，也没有被删掉的旧引擎类——这几点可以用
-`jar tf build/libs/bbsvoice-1.0.0-1.20.4.jar` 直接核对。
+`jar tf build/libs/bbsvoice-1.0-<版本>.jar` 直接核对。
 
-编译需要一个**不在本仓库里**的本地 jar：`libs/bbs-2.3-1.20.4.jar`。
+### 26.3 与 1.20.4 的结构差异（移植时都会撞到）
+
+| 项 | 1.20.4 | 26.3 |
+| --- | --- | --- |
+| Loom 插件 id | `fabric-loom` | **`net.fabricmc.fabric-loom`** |
+| `mappings` | `yarn:1.20.4+build.1` | **整行没有** |
+| 依赖声明 | `modImplementation` | `implementation` |
+| Java | 17 | **25** |
+| Gradle / Loom | 9.6.1 / 1.15.5 | **9.7.1 / 1.18.4** |
+
+26.3 起 Mojang 直接发**未混淆**的 jar，Fabric 不再有 intermediary/yarn（查
+`meta.fabricmc.net/v2/versions/yarn/26.3` 返回 `count=0`），所以 Loom 里没有映射这一步。
+源码于是要写**官方名**：`net.minecraft.client.Minecraft`（不是 yarn 的 `MinecraftClient`）、
+`gameDirectory`（不是 `runDirectory`）、`stop()`（不是 `scheduleStop()`）。
+BBS 自己的 API（`mchorse.bbs_mod.*`）在 2.3.2-26.3 里逐个核对过，本 mod 用到的类一个没少，
+只有 `ActionClip` 的方法签名从 `class_1309` 变成了官方名 `LivingEntity`。
+
+编译需要一个**不在本仓库里**的本地 jar，文件名跟着 `gradle.properties` 的 `bbs_version` 走：
+`libs/bbs-2.3-1.20.4.jar`（main）或 `libs/bbs-2.3.2-26.3.jar`（fabric-26.3）。
 
 BBS 是第三方分支、Modrinth 上没有对应坐标，而且这个文件是 **BBS 作者的成品**（版权归作者，
-本仓库不分发），所以克隆之后要自己准备一次——从你正在玩的整合包里把它拷进 `libs/`，
-文件名按 `gradle.properties` 里的 `bbs_version=2.3` 命名：
+本仓库不分发），所以克隆之后要自己准备一次——从你正在玩的整合包里把它拷进 `libs/`：
 
 ```powershell
+# main（1.20.4）
 copy '<你的整合包目录>\mods\bbs-2.3.1-1.20.4.jar' 'libs\bbs-2.3-1.20.4.jar'
+# fabric-26.3
+copy '<你的整合包目录>\mods\bbs-2.3.2-26.3.jar' 'libs\bbs-2.3.2-26.3.jar'
 ```
 
 在目标整合包里跑一次真机自检（开发用）：
 
 ```powershell
 # -MinecraftDir 指向你自己的 .minecraft（也可以设 $env:BBSVOICE_MC，或写进 git-ignored 的 tools\local.ps1）
-powershell -File tools/RunSelfTest.ps1 -MinecraftDir '<你的 .minecraft 目录>'
-# 装进 versions/BBS/mods，带 -Dbbsvoice.selftest=1 启动，自检完写 bbsvoice-selftest.txt 并自动退出
+# -VersionName 选版本档案（PCL 隔离安装一个版本一个目录）；Java 版本与 assetIndex 都从该档案里读
+powershell -File tools/RunSelfTest.ps1 -MinecraftDir '<你的 .minecraft 目录>' -VersionName BBS
+powershell -File tools/RunSelfTest.ps1 -MinecraftDir '<你的 .minecraft 目录>' -VersionName 26.3 -ModJar build\libs\bbsvoice-1.0-26.3.jar
+# 装进 versions/<版本>/mods（会先清掉旧的同名 jar，避免同 id 两份导致 Fabric 拒绝启动），
+# 带 -Dbbsvoice.selftest=1 启动，自检完写 bbsvoice-selftest.txt 并自动退出
 ```
 
 自检覆盖 30 项：剪辑工厂注册、数据序列化往返、**老存档（旧引擎人物 id）回退**、语言文件、内置资源包、
