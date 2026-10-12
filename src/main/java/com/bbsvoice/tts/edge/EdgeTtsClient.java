@@ -19,6 +19,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -71,10 +72,36 @@ public final class EdgeTtsClient
     /** Connect timeout; the render already runs on a background thread, so this can be generous. */
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(15);
 
+    /** Attempts allowed per line; the service rates the client, so a burst of new lines earns 429s. */
+    private static final int MAX_ATTEMPTS = 4;
+
+    /** First retry delay; every further attempt doubles it. */
+    private static final long BASE_RETRY_DELAY_MS = 1200L;
+
+    /** Cap on one retry delay, however long {@code Retry-After} asks us to wait. */
+    private static final long MAX_RETRY_DELAY_MS = 20_000L;
+
+    /**
+     * Minimum spacing between two conversations. The host rates the client per address, so a film whose
+     * lines are all new would otherwise open one socket right after the next and collect {@code 429}s
+     * on the tail of the burst; a render already takes seconds, so the gap is not noticeable.
+     */
+    private static final long MIN_REQUEST_GAP_MS = 700L;
+
+    /** When the previous conversation started; keeps consecutive ones apart. */
+    private static final AtomicLong LAST_REQUEST_START = new AtomicLong();
+
     private EdgeTtsClient()
     {}
 
     /**
+     * Speaks {@code ssml}, waiting and trying again while the service is only asking us to slow down.
+     *
+     * <p>The host rates the client per address: a film whose lines are all new opens one socket after
+     * another, and the tail of that burst comes back {@code 429}. That used to be reported to the user
+     * as a failed line even though the very next attempt succeeds, so the render now waits instead. The
+     * wait respects {@code Retry-After} when the service sends one and doubles otherwise.</p>
+     *
      * @param ssml    the document to speak, built with {@code SsmlBuilder}
      * @param timeout total budget for the whole conversation
      * @return the mp3 stream the service produced
@@ -82,6 +109,42 @@ public final class EdgeTtsClient
      */
     public static byte[] synthesize(String ssml, Duration timeout) throws IOException
     {
+        IOException failure = null;
+
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++)
+        {
+            try
+            {
+                return synthesizeOnce(ssml, timeout);
+            }
+            catch (IOException e)
+            {
+                failure = e;
+
+                if (attempt == MAX_ATTEMPTS || !isTransient(e))
+                {
+                    throw e;
+                }
+
+                long delay = retryDelayMs(e, attempt);
+
+                System.err.println("[BBS Voice] Edge speech refused the upgrade with " + statusOf(e)
+                    + "; retrying in " + delay + " ms (attempt " + (attempt + 1) + " of " + MAX_ATTEMPTS + ")");
+
+                if (!sleep(delay))
+                {
+                    throw e;
+                }
+            }
+        }
+
+        throw failure;
+    }
+
+    private static byte[] synthesizeOnce(String ssml, Duration timeout) throws IOException
+    {
+        pacePolitely();
+
         String connectionId = randomHex(16);
         String muid = randomHex(16).toUpperCase(java.util.Locale.ROOT);
 
@@ -194,6 +257,105 @@ public final class EdgeTtsClient
     private static Throwable unwrap(Throwable throwable)
     {
         return throwable.getCause() == null ? throwable : throwable.getCause();
+    }
+
+    /** The HTTP status of a refused upgrade, or -1 when the failure was not a handshake response. */
+    private static int statusOf(Throwable failure)
+    {
+        HttpResponse<?> response = handshakeResponse(failure);
+
+        return response == null ? -1 : response.statusCode();
+    }
+
+    /**
+     * @return whether sending the same request again is worth it: the service rated the client (429) or
+     *         is briefly unavailable (5xx). A 403 means the token was rejected and a 400 the document,
+     *         so retrying those only delays the error the user needs to see.
+     */
+    private static boolean isTransient(IOException failure)
+    {
+        int status = statusOf(failure);
+
+        return status == 429 || status == 500 || status == 502 || status == 503 || status == 504;
+    }
+
+    private static long retryDelayMs(IOException failure, int attempt)
+    {
+        long backoff = BASE_RETRY_DELAY_MS << (attempt - 1);
+
+        return Math.min(Math.max(backoff, retryAfterMs(failure)), MAX_RETRY_DELAY_MS);
+    }
+
+    /** {@code Retry-After} in seconds as the service may send it; 0 when absent or in HTTP-date form. */
+    private static long retryAfterMs(Throwable failure)
+    {
+        HttpResponse<?> response = handshakeResponse(failure);
+
+        if (response == null)
+        {
+            return 0L;
+        }
+
+        String header = response.headers().firstValue("Retry-After").orElse(null);
+
+        if (header == null)
+        {
+            return 0L;
+        }
+
+        try
+        {
+            return Math.max(0L, Long.parseLong(header.trim())) * 1000L;
+        }
+        catch (NumberFormatException e)
+        {
+            /* An HTTP-date; our own backoff is a fine fallback and this stays simple. */
+            return 0L;
+        }
+    }
+
+    /** The response of a refused upgrade, looked for anywhere in the cause chain. */
+    private static HttpResponse<?> handshakeResponse(Throwable failure)
+    {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause())
+        {
+            if (cause instanceof WebSocketHandshakeException)
+            {
+                return ((WebSocketHandshakeException) cause).getResponse();
+            }
+        }
+
+        return null;
+    }
+
+    /** Keep two conversations apart, so a queue of new lines does not trip the service's rate limit. */
+    private static void pacePolitely()
+    {
+        long wait = LAST_REQUEST_START.get() + MIN_REQUEST_GAP_MS - System.currentTimeMillis();
+
+        if (wait > 0)
+        {
+            sleep(wait);
+        }
+
+        LAST_REQUEST_START.set(System.currentTimeMillis());
+    }
+
+    /** @return false when interrupted, having restored the interrupt flag. */
+    private static boolean sleep(long millis)
+    {
+        try
+        {
+            Thread.sleep(millis);
+
+            return true;
+        }
+        catch (InterruptedException e)
+        {
+            Thread.currentThread().interrupt();
+
+            return false;
+        }
     }
 
     /** One request/response conversation; the listener owns every piece of mutable state. */
