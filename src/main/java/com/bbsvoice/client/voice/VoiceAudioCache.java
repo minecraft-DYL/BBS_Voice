@@ -10,7 +10,7 @@ import com.bbsvoice.voice.ClipFitRules;
 import com.bbsvoice.voice.VoiceData;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.resources.Link;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 import java.io.File;
 import java.io.IOException;
@@ -383,7 +383,7 @@ public final class VoiceAudioCache
 
     private static void onClientThread(Runnable runnable)
     {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
 
         if (client == null)
         {

@@ -1,5 +1,5 @@
 plugins {
-	id 'fabric-loom' version '1.15.5'
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
 	id 'maven-publish'
 }
 
@@ -8,20 +8,6 @@ group = project.maven_group
 
 base {
 	archivesName = project.archives_base_name
-}
-
-repositories {
-	exclusiveContent {
-		forRepository {
-			maven {
-				name = "Modrinth"
-				url = "https://api.modrinth.com/maven"
-			}
-		}
-		filter {
-			includeGroup "maven.modrinth"
-		}
-	}
 }
 
 /*
@@ -37,16 +23,16 @@ configurations {
 dependencies {
 	// To change the versions see the gradle.properties file
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
-	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+	/* 26.3: the game ships unobfuscated, so there is no mappings line and the loader /
+	 * Fabric API go in as plain `implementation` (no remapping step). */
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
 	/* BBS mod - the host mod this addon plugs into.
-	 * Pinned to the exact jar from the target installation (BBS FS fork, 2.3-1.20.4) so that the
-	 * compiled addon matches what the user actually runs. The 2.2 jar disappeared from libs/ when the
-	 * installation was upgraded, which broke the build until this was bumped to match. */
-	modImplementation files("libs/bbs-${project.bbs_version}.jar")
+	 * Pinned to the exact 26.3 jar (BBS FS fork, 2.3.2-26.3) so the compiled addon matches what the
+	 * user actually runs. The jar is git-ignored (third-party binary); see README. */
+	implementation files("libs/bbs-${project.bbs_version}.jar")
 
 	/* mp3 decoding for the EdgeTTS backend (LGPL-2.1; embedded into the jar by the `jar` task). */
 	implementation files("libs/jlayer-${project.jlayer_version}.jar")
@@ -66,15 +52,16 @@ processResources {
 }
 
 tasks.withType(JavaCompile).configureEach {
-	it.options.release = 17
+	// MC 26.3 requires Java 25 (was 17 on 1.20.4).
+	it.options.release = 25
 	it.options.encoding = "UTF-8"
 }
 
 java {
 	withSourcesJar()
 
-	sourceCompatibility = JavaVersion.VERSION_17
-	targetCompatibility = JavaVersion.VERSION_17
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
 }
 
 test {

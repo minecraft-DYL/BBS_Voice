@@ -25,7 +25,7 @@ import mchorse.bbs_mod.ui.film.clips.UIClip;
 import mchorse.bbs_mod.utils.clips.Clip;
 import mchorse.bbs_mod.utils.keyframes.KeyframeChannel;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 import java.io.File;
 import java.io.InputStream;
@@ -76,7 +76,7 @@ public final class BBSVoiceSelfTest
         ClientTickEvents.END_CLIENT_TICK.register(BBSVoiceSelfTest::tick);
     }
 
-    private static void tick(MinecraftClient client)
+    private static void tick(Minecraft client)
     {
         /* The title screen is enough, none of the checks need a loaded world. */
         ticks++;
@@ -85,7 +85,8 @@ public final class BBSVoiceSelfTest
         {
             if (ticks >= quitAt)
             {
-                client.scheduleStop();
+                // 26.3 ships the game unobfuscated: the official name is stop() (was yarn's scheduleStop()).
+                client.stop();
             }
 
             return;
@@ -314,7 +315,7 @@ public final class BBSVoiceSelfTest
         }
     }
 
-    private static void waitForRender(MinecraftClient client)
+    private static void waitForRender(Minecraft client)
     {
         VoiceAudioCache.Status status = VoiceAudioCache.status(data);
 
@@ -431,7 +432,7 @@ public final class BBSVoiceSelfTest
         return clip;
     }
 
-    private static void loadSound(MinecraftClient client)
+    private static void loadSound(Minecraft client)
     {
         if (rendered == null)
         {
@@ -504,7 +505,7 @@ public final class BBSVoiceSelfTest
         return object == null ? "null" : object.getClass().getName();
     }
 
-    private static void finish(MinecraftClient client)
+    private static void finish(Minecraft client)
     {
         int passed = 0;
         int failed = 0;
@@ -532,7 +533,7 @@ public final class BBSVoiceSelfTest
         RESULTS.add(summary);
         System.out.println(PREFIX + " " + summary);
 
-        try (PrintWriter writer = new PrintWriter(new File(client.runDirectory, "bbsvoice-selftest.txt"), "UTF-8"))
+        try (PrintWriter writer = new PrintWriter(new File(client.gameDirectory, "bbsvoice-selftest.txt"), "UTF-8"))
         {
             for (String line : RESULTS)
             {
