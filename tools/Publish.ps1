@@ -105,7 +105,12 @@ foreach ($r in $releases) {
     $json = @{
         tag_name   = $r.Tag
         name       = $r.Tag
-        body       = (Get-Content $r.Notes -Raw -Encoding UTF8)
+        # [IO.File]::ReadAllText, not Get-Content -Raw: the latter hands back a string carrying the
+        # provider's note properties (PSPath, PSDrive, ReadCount...), and ConvertTo-Json then serialises
+        # the body as an object - GitHub answers 422 "For 'properties/body', {...} is not a string".
+        # The absolute path matters too: Set-Location does not move the process's current directory,
+        # which is the one .NET resolves relative paths against.
+        body       = [IO.File]::ReadAllText((Join-Path $root $r.Notes), [Text.Encoding]::UTF8)
         draft      = $false
         prerelease = $false
     } | ConvertTo-Json
