@@ -46,15 +46,14 @@ public class BBSVoiceSettings
         maxCacheFiles = builder.getInt("max_cache_files", 256, 16, 4096);
     }
 
+    /**
+     * @return the configured default speaker id. It is resolved through
+     *         {@link com.bbsvoice.tts.VoiceCatalog}, so it may name a character voice as well as an
+     *         Edge one.
+     */
     public static String defaultVoice()
     {
         return defaultVoice == null ? EdgeVoice.DEFAULT_ID : defaultVoice.get();
-    }
-
-    /** @return the default speaker; falls back to a voice that exists when the setting is unknown. */
-    public static EdgeVoice defaultEdgeVoice()
-    {
-        return EdgeVoice.byId(defaultVoice());
     }
 
     public static float defaultVolume()

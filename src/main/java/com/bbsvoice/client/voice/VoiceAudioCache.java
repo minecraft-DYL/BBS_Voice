@@ -2,9 +2,12 @@ package com.bbsvoice.client.voice;
 
 import com.bbsvoice.BBSVoice;
 import com.bbsvoice.BBSVoiceSettings;
+import com.bbsvoice.tts.VoiceCatalog;
 import com.bbsvoice.tts.WavFile;
 import com.bbsvoice.tts.edge.EdgeTtsBackend;
 import com.bbsvoice.tts.edge.EdgeTtsRequest;
+import com.bbsvoice.tts.external.ExternalTtsBackend;
+import com.bbsvoice.tts.speech.SpeechBackend;
 import com.bbsvoice.tts.speech.SpeechRequest;
 import com.bbsvoice.voice.ClipFitRules;
 import com.bbsvoice.voice.VoiceData;
@@ -342,7 +345,7 @@ public final class VoiceAudioCache
                     throw new IOException("nothing to say");
                 }
 
-                new EdgeTtsBackend().render(speech, file);
+                backendFor(speech.voice).render(speech, file);
 
                 FAILED.remove(signature);
 
@@ -379,6 +382,16 @@ public final class VoiceAudioCache
                 PENDING.remove(signature);
             }
         });
+    }
+
+    /**
+     * @return the engine that serves this voice. Character voices come from the external HTTP service
+     *         (Edge has none) and everything else from Edge — this is the only place that decision is
+     *         made, so a backend never has to know about the other one's voices.
+     */
+    private static SpeechBackend backendFor(String voice)
+    {
+        return VoiceCatalog.isExternal(voice) ? new ExternalTtsBackend() : new EdgeTtsBackend();
     }
 
     private static void onClientThread(Runnable runnable)

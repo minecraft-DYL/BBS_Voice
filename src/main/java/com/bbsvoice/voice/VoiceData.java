@@ -1,5 +1,6 @@
 package com.bbsvoice.voice;
 
+import com.bbsvoice.tts.Voice;
 import com.bbsvoice.tts.edge.EdgeTtsRequest;
 import com.bbsvoice.tts.edge.EdgeVoice;
 import com.bbsvoice.tts.speech.ProsodyPlanner;
@@ -137,10 +138,16 @@ public class VoiceData extends ValueGroup
         return this.recording.get();
     }
 
-    /** Switches the speaker for this one clip. */
-    public void setVoice(EdgeVoice voice)
+    /**
+     * Switches the speaker for this one clip.
+     *
+     * <p>Takes the {@link Voice} interface rather than {@link EdgeVoice} so a character voice can be
+     * set the same way — the old signature would have silently downgraded {@code ext:manbo} to
+     * Xiaoxiao, because that is exactly what {@link #edgeVoice()} does with an id it does not know.</p>
+     */
+    public void setVoice(Voice voice)
     {
-        this.voice.set(voice.id);
+        this.voice.set(voice.id());
     }
 
     /**
@@ -151,7 +158,7 @@ public class VoiceData extends ValueGroup
      */
     public EdgeTtsRequest toRequest()
     {
-        return new EdgeTtsRequest(this.text.get(), this.edgeVoice().id, this.prosodyFingerprint());
+        return new EdgeTtsRequest(this.text.get(), this.voice.get(), this.prosodyFingerprint());
     }
 
     public VoiceEmotion emotionPreset()
@@ -290,7 +297,7 @@ public class VoiceData extends ValueGroup
     {
         List<ProsodySpan> plan = this.prosodyPlan();
 
-        return plan.isEmpty() ? null : new SpeechRequest(this.edgeVoice().id, plan);
+        return plan.isEmpty() ? null : new SpeechRequest(this.voice.get(), plan);
     }
 
     public boolean speedCurveOn()

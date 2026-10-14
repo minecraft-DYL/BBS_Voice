@@ -2,7 +2,8 @@ package com.bbsvoice.client.ui;
 
 import com.bbsvoice.client.voice.VoiceAudioCache;
 import com.bbsvoice.client.voice.VoiceClipFit;
-import com.bbsvoice.tts.edge.EdgeVoice;
+import com.bbsvoice.tts.Voice;
+import com.bbsvoice.tts.VoiceCatalog;
 import com.bbsvoice.tts.speech.VoiceEmotion;
 import com.bbsvoice.voice.IVoiceClip;
 import com.bbsvoice.voice.VoiceData;
@@ -21,6 +22,7 @@ import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UISoundOverlayPanel;
+import mchorse.bbs_mod.ui.framework.elements.overlay.UIStringOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UITextareaOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.utils.UILabel;
 import mchorse.bbs_mod.ui.utils.UI;
@@ -28,7 +30,11 @@ import mchorse.bbs_mod.ui.utils.UIUtils;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.clips.Clip;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -42,7 +48,8 @@ public abstract class UIVoiceClipBase <T extends Clip & IVoiceClip> extends UICl
     public UITextbox text;
     public UIButton editText;
     public UIButton rerender;
-    public UICirculate voiceCycle;
+    /** The speaker. Opens a searchable list, because the catalog outgrew a cycling button. */
+    public UIButton voicePicker;
 
     public UICirculate sourceCycle;
     public UIIcon record;
@@ -95,18 +102,8 @@ public abstract class UIVoiceClipBase <T extends Clip & IVoiceClip> extends UICl
         this.editText = new UIButton(VoiceUIKeys.EDIT_TEXT, (b) -> this.openTextEditor());
         this.rerender = new UIButton(VoiceUIKeys.RERENDER, (b) -> this.rerender());
 
-        this.voiceCycle = new UICirculate((cycle) ->
-        {
-            if (!this.updating)
-            {
-                this.applyVoice(EdgeVoice.all()[cycle.getValue()]);
-            }
-        });
-
-        for (EdgeVoice voice : EdgeVoice.all())
-        {
-            this.voiceCycle.addLabel(VoiceUIKeys.voice(voice.id));
-        }
+        this.voicePicker = new UIButton(VoiceUIKeys.CHARACTER, (b) -> this.openVoicePicker());
+        this.voicePicker.tooltip(VoiceUIKeys.VOICE_PICKER_TOOLTIP);
 
         /* --- dubbing source --- */
 
@@ -208,7 +205,7 @@ public abstract class UIVoiceClipBase <T extends Clip & IVoiceClip> extends UICl
         super.registerPanels();
 
         this.panels.add(UI.column(UI.label(VoiceUIKeys.TEXT), this.text, UI.row(this.editText, this.rerender)).marginTop(12));
-        this.panels.add(UI.column(UI.label(VoiceUIKeys.CHARACTER), this.voiceCycle).marginTop(12));
+        this.panels.add(UI.column(UI.label(VoiceUIKeys.CHARACTER), this.voicePicker).marginTop(12));
         this.panels.add(UI.column(UI.label(VoiceUIKeys.DUBBING_SOURCE), this.sourceCycle, UI.row(this.record, this.pickRecording, this.recordingName)).marginTop(12));
         this.panels.add(UI.column(UI.label(VoiceUIKeys.MIX), UI.row(this.pitch, this.volume), UI.row(this.speed, this.offset), this.autoFit).marginTop(12));
         this.panels.add(UI.column(UI.label(VoiceUIKeys.EMOTION), this.emotionCycle).marginTop(12));
@@ -246,7 +243,7 @@ public abstract class UIVoiceClipBase <T extends Clip & IVoiceClip> extends UICl
 
         this.emotionCycle.setValue(emotionIndex);
 
-        this.voiceCycle.setValue(EdgeVoice.indexOf(data.edgeVoice().id));
+        this.voicePicker.label = VoiceUIKeys.voice(data.voice.get());
         this.sourceCycle.setValue(data.usesRecording() ? 1 : 0);
 
         this.updating = false;
@@ -429,11 +426,52 @@ public abstract class UIVoiceClipBase <T extends Clip & IVoiceClip> extends UICl
         UIOverlay.addOverlay(this.getContext(), panel, 0.9F, 0.6F);
     }
 
-    private void applyVoice(EdgeVoice voice)
+    /**
+     * Opens the speaker list as BBS' own searchable overlay.
+     *
+     * <p>This used to be a cycling button, which stops working the moment the list is longer than a
+     * handful of entries — and the catalog is 27 now that the multilingual and character voices are in.
+     * The overlay brings a search field with it, so "曼波", "东北" and "Ava" each find their voice
+     * without scrolling.</p>
+     */
+    private void openVoicePicker()
+    {
+        List<String> labels = new ArrayList<>(VoiceCatalog.all().size());
+        Map<String, Voice> byLabel = new LinkedHashMap<>();
+
+        for (Voice voice : VoiceCatalog.all())
+        {
+            String label = VoiceUIKeys.voice(voice.id()).get();
+
+            /* The list identifies a row by its text, so a duplicated label would be unclickable. */
+            if (byLabel.containsKey(label))
+            {
+                label = label + " (" + voice.id() + ")";
+            }
+
+            labels.add(label);
+            byLabel.put(label, voice);
+        }
+
+        UIStringOverlayPanel panel = new UIStringOverlayPanel(VoiceUIKeys.CHARACTER, labels, (picked) ->
+        {
+            Voice voice = byLabel.get(picked);
+
+            if (voice != null)
+            {
+                this.applyVoice(voice);
+            }
+        });
+
+        panel.set(VoiceUIKeys.voice(this.voice().voice.get()).get());
+        UIOverlay.addOverlay(this.getContext(), panel, 0.9F, 0.7F);
+    }
+
+    private void applyVoice(Voice voice)
     {
         VoiceData data = this.voice();
 
-        this.editor.editMultiple(data.voice, (property) -> property.set(voice.id));
+        this.editor.editMultiple(data.voice, (property) -> property.set(voice.id()));
 
         this.fillData();
     }
