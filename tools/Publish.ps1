@@ -61,6 +61,15 @@ foreach ($r in $releases) {
 if (git status --porcelain) { throw 'working tree is dirty - commit before publishing' }
 
 Write-Host '--- push ---' -ForegroundColor Cyan
+
+# git reports progress on stderr ("Everything up-to-date", "To https://github.com/..."), and PowerShell
+# turns a native command's stderr into an ErrorRecord. With the Stop preference this script relies on
+# everywhere else, that aborts the run on a *successful* push - the first release attempt died at
+# "git push origin main" while main was simply already up to date. So the preference is relaxed for the
+# git calls and $LASTEXITCODE is checked explicitly; the strict behaviour resumes right after.
+$strictPreference = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+
 git push origin main
 git push origin fabric-26.3
 
@@ -80,6 +89,8 @@ foreach ($r in $releases) {
 
     if ($LASTEXITCODE -ne 0) { throw "push of tag $($r.Tag) failed" }
 }
+
+$ErrorActionPreference = $strictPreference
 
 $api = "https://api.github.com/repos/$Owner/$Repo"
 $headers = @{
