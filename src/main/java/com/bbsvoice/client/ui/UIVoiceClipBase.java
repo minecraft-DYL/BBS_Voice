@@ -1,6 +1,7 @@
 package com.bbsvoice.client.ui;
 
 import com.bbsvoice.client.voice.VoiceAudioCache;
+import com.bbsvoice.tts.FailureHint;
 import com.bbsvoice.client.voice.VoiceClipFit;
 import com.bbsvoice.tts.Voice;
 import com.bbsvoice.tts.VoiceCatalog;
@@ -283,9 +284,10 @@ public abstract class UIVoiceClipBase <T extends Clip & IVoiceClip> extends UICl
 
         this.recordingName.label = recording == null ? VoiceUIKeys.NO_RECORDING : IKey.constant(fileName(recording));
 
+        VoiceAudioCache.Status state = VoiceAudioCache.status(data);
         IKey key;
 
-        switch (VoiceAudioCache.status(data))
+        switch (state)
         {
             case RENDERING: key = VoiceUIKeys.STATUS_RENDERING; break;
             case READY: key = VoiceUIKeys.STATUS_READY; break;
@@ -297,6 +299,23 @@ public abstract class UIVoiceClipBase <T extends Clip & IVoiceClip> extends UICl
         String cut = key == VoiceUIKeys.STATUS_READY ? this.cutWarning(data) : null;
 
         this.status.label = cut == null ? key : IKey.constant(key.get() + "，" + cut);
+
+        /*
+         * The line stays short - one piece of advice - and the message the engine threw goes in the
+         * tooltip. That message is what separates "you are being rate limited" from "the service
+         * refused you" from "your own network is down", but it is far too long and too ugly to sit in
+         * the panel next to the buttons.
+         */
+        String detail = state == VoiceAudioCache.Status.FAILED && !data.usesRecording() ? failureDetail(data) : null;
+
+        if (detail == null)
+        {
+            this.status.removeTooltip();
+        }
+        else
+        {
+            this.status.tooltip(IKey.constant(detail));
+        }
     }
 
     /**
@@ -347,12 +366,38 @@ public abstract class UIVoiceClipBase <T extends Clip & IVoiceClip> extends UICl
             return VoiceUIKeys.STATUS_FAILED;
         }
 
-        if (reason.length() > 90)
+        FailureHint hint = hint(data, reason);
+
+        /* Nothing matched, so the raw message is the only honest thing the line can say. */
+        if (hint == FailureHint.UNKNOWN)
         {
-            reason = reason.substring(0, 90) + "…";
+            return IKey.constant(VoiceUIKeys.STATUS_FAILED.get() + "：" + trim(reason, 90));
         }
 
-        return IKey.constant(VoiceUIKeys.STATUS_FAILED.get() + "：" + reason);
+        return IKey.constant(VoiceUIKeys.STATUS_FAILED.get() + "：" + VoiceUIKeys.hint(hint).get());
+    }
+
+    /** @return the tooltip of a failed render: the advice, then the message the engine itself threw. */
+    private static String failureDetail(VoiceData data)
+    {
+        String reason = VoiceAudioCache.failureReason(data);
+
+        if (reason == null)
+        {
+            return VoiceUIKeys.STATUS_FAILED.get();
+        }
+
+        return VoiceUIKeys.hint(hint(data, reason)).get() + " | " + trim(reason, 240);
+    }
+
+    private static FailureHint hint(VoiceData data, String reason)
+    {
+        return FailureHint.classify(VoiceCatalog.isExternal(data.voice.get()), reason);
+    }
+
+    private static String trim(String text, int max)
+    {
+        return text.length() <= max ? text : text.substring(0, max) + "…";
     }
 
     private static String fileName(Link link)

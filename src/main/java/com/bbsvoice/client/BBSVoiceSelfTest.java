@@ -7,6 +7,7 @@ import com.bbsvoice.client.voice.VoiceActionClientClip;
 import com.bbsvoice.client.voice.VoiceAudioCache;
 import com.bbsvoice.client.voice.VoiceClientClip;
 import com.bbsvoice.client.voice.VoiceClipFit;
+import com.bbsvoice.tts.FailureHint;
 import com.bbsvoice.tts.WavFile;
 import com.bbsvoice.tts.VoiceCatalog;
 import com.bbsvoice.tts.edge.EdgeVoice;
@@ -211,6 +212,26 @@ public final class BBSVoiceSelfTest
             VoiceCatalog.isExternal(ExternalVoice.MANBO.id()) && !VoiceCatalog.isExternal(EdgeVoice.DEFAULT_ID),
             "character=" + VoiceCatalog.isExternal(ExternalVoice.MANBO.id()) + " edge=" + VoiceCatalog.isExternal(EdgeVoice.DEFAULT_ID));
 
+        /*
+         * 2d. failure hints - what the user gets instead of reading the log. A 429 has to advise waiting
+         * or batching smaller, a 403 has to say risk control, and a dead third-party mirror has to say
+         * "switch voice" rather than blame the user's own network. The messages are the ones the backends
+         * really throw, so a reworded message fails here instead of quietly reading as "something went
+         * wrong".
+         */
+        check("failure hint: a 429 reads as rate limiting",
+            FailureHint.classify(false, "could not open the Edge speech connection: HTTP 429 - the Edge speech service refused the websocket upgrade") == FailureHint.RATE_LIMITED,
+            FailureHint.classify(false, "HTTP 429").name());
+        check("failure hint: a 403 reads as risk control",
+            FailureHint.classify(false, "could not open the Edge speech connection: HTTP 403 - the Edge speech service refused the websocket upgrade") == FailureHint.BLOCKED,
+            FailureHint.classify(false, "HTTP 403").name());
+        check("failure hint: a dead network is not confused with a refusal",
+            FailureHint.classify(false, "java.net.UnknownHostException: api.msedgeservices.com") == FailureHint.OFFLINE,
+            FailureHint.classify(false, "java.net.UnknownHostException: x").name());
+        check("failure hint: a dead third-party voice says to switch back",
+            FailureHint.classify(true, "the mirror said something nobody has seen before") == FailureHint.EXTERNAL_DOWN,
+            FailureHint.classify(true, "the mirror said something odd").name());
+
         /* 3. language files load after the addon reload */
         String text = VoiceUIKeys.TEXT.get();
 
@@ -224,6 +245,9 @@ public final class BBSVoiceSelfTest
         check("l10n names the character voice",
             !VoiceUIKeys.voice(ExternalVoice.MANBO.id()).get().startsWith("bbsvoice."),
             VoiceUIKeys.voice(ExternalVoice.MANBO.id()).get());
+        check("l10n names the failure hints",
+            !VoiceUIKeys.hint(FailureHint.RATE_LIMITED).get().startsWith("bbsvoice."),
+            VoiceUIKeys.hint(FailureHint.RATE_LIMITED).get());
 
         /* 4. our own source pack is registered */
         try (InputStream stream = BBSMod.getProvider().getAsset(new Link(BBSVoice.MOD_ID, "strings/zh_cn.json")))

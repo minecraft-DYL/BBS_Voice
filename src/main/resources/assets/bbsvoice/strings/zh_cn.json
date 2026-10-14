@@ -92,5 +92,17 @@
     "bbsvoice.voice.ko-KR-HyunsuMultilingualNeural": "Hyunsu · 多语种男声",
     "bbsvoice.voice.pt-BR-ThalitaMultilingualNeural": "Thalita · 多语种女声",
 
-    "bbsvoice.voice.ext:manbo": "曼波 · 角色配音"
+    "bbsvoice.voice.ext:manbo": "曼波 · 角色配音",
+
+    "bbsvoice.hint.rate_limited": "被服务限流（HTTP 429）：等十几秒再合成，或一次少合成几句",
+    "bbsvoice.hint.blocked": "服务风控拒绝了这次合成（HTTP 401/403）：等几分钟再试",
+    "bbsvoice.hint.unsupported_line": "这个音色念不出这段文本：换个音色，或改掉生僻符号",
+    "bbsvoice.hint.service_down": "服务端故障（HTTP 5xx），不是本 mod 的问题：稍后再试",
+    "bbsvoice.hint.timeout": "合成超时：服务没按时回应（网速慢或正被限流），稍后重试",
+    "bbsvoice.hint.offline": "连不上服务（域名解析失败或连接被拒）：检查网络 / 代理 / 防火墙",
+    "bbsvoice.hint.empty_audio": "服务返回了空音频（静音或空流）：再点一次「重新合成」",
+    "bbsvoice.hint.odd_answer": "接口返回的内容既不是音频也没有下载地址：可能接口改了或临时挂了",
+    "bbsvoice.hint.local_audio": "音频在本地解码失败（服务给的数据不完整）：重新合成一次",
+    "bbsvoice.hint.external_down": "第三方角色音色接口失败（会限流或临时挂掉）：换回 Edge 音色即可",
+    "bbsvoice.hint.unknown": "没识别出具体原因，可以先点「重新合成」再试一次"
 }

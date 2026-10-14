@@ -1,10 +1,12 @@
 package com.bbsvoice.client.ui;
 
+import com.bbsvoice.tts.FailureHint;
 import com.bbsvoice.tts.Voice;
 import com.bbsvoice.tts.VoiceCatalog;
 import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -53,12 +55,18 @@ public class VoiceUIKeys
     public static final IKey OPEN_FOLDER = L10n.lang("bbsvoice.ui.open_folder");
 
     private static final Map<String, IKey> VOICES = new HashMap<>();
+    private static final Map<FailureHint, IKey> HINTS = new EnumMap<>(FailureHint.class);
 
     static
     {
         for (Voice voice : VoiceCatalog.all())
         {
             VOICES.put(voice.id(), L10n.lang(voice.labelKey(), voice.labelFallback(), null));
+        }
+
+        for (FailureHint hint : FailureHint.values())
+        {
+            HINTS.put(hint, L10n.lang(hint.labelKey()));
         }
     }
 
@@ -68,5 +76,11 @@ public class VoiceUIKeys
         IKey key = VOICES.get(id);
 
         return key == null ? IKey.constant(id) : key;
+    }
+
+    /** @return the one-line "what to do about it" advice shown when a render fails. */
+    public static IKey hint(FailureHint hint)
+    {
+        return HINTS.getOrDefault(hint, STATUS_FAILED);
     }
 }
