@@ -149,8 +149,14 @@ foreach ($r in $releases) {
             -ContentType 'application/json; charset=utf-8' -Body $body
     }
 
-    $upload = $release.upload_url -replace '\{.*\}$', ''
-    Invoke-RestMethod -Uri "$upload?name=$name" -Method Post -InFile $r.Jar `
+    # GitHub answers upload_url as an URI template (".../assets{?name,label}"). Trimming that template
+    # looked right but silently produced an empty base in this environment, and Invoke-RestMethod then
+    # reported the whole thing as "invalid URI: the host name could not be parsed" - which says nothing
+    # about the real problem. The endpoint is documented and stable, so build it from the release id.
+    $upload = "https://uploads.github.com/repos/$Owner/$Repo/releases/$($release.id)/assets?name=$name"
+
+    Write-Host "    upload -> $upload"
+    Invoke-RestMethod -Uri $upload -Method Post -InFile $r.Jar `
         -Headers @{ Authorization = "token $Token"; 'User-Agent' = 'bbs-voice-publish'; 'Content-Type' = 'application/java-archive' } | Out-Null
 
     Write-Host "    $name uploaded" -ForegroundColor Green
