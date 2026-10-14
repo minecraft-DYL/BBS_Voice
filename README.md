@@ -33,7 +33,7 @@
 ## 2. 安装
 
 1. 把 Fabric Loader + Fabric API + BBS mod 装好。
-2. 把对应版本的 jar 放进 `mods/`：**1.20.4 用 `bbsvoice-1.0-1.20.4.jar`，26.3 用 `bbsvoice-1.0-26.3.jar`**。
+2. 把对应版本的 jar 放进 `mods/`：**1.20.4 用 `bbsvoice-1.1-1.20.4.jar`，26.3 用 `bbsvoice-1.1-26.3.jar`**。
    mp3 解码器（JLayer）已经打进这个 jar 里，不需要额外文件。
 3. 启动游戏。
 
@@ -284,17 +284,17 @@ java -Dstdout.encoding=UTF-8 -cp "build/probe;libs/jlayer-1.0.1.4.jar" EdgeTtsPr
 ```bash
 # 分支即版本：main = 1.20.4，fabric-26.3 = 26.3。
 #
-#   main          JDK 17+   Loom 1.15.5   Gradle 9.6.1   产物 bbsvoice-1.0-1.20.4.jar
-#   fabric-26.3   JDK 25    Loom 1.18.4   Gradle 9.7.1   产物 bbsvoice-1.0-26.3.jar
+#   main          JDK 17+   Loom 1.15.5   Gradle 9.6.1   产物 bbsvoice-1.1-1.20.4.jar
+#   fabric-26.3   JDK 25    Loom 1.18.4   Gradle 9.7.1   产物 bbsvoice-1.1-26.3.jar
 #
 # 两条分支都用仓库自带的 wrapper（版本已锁死）；用 PATH 上的 Gradle 8.x 会在解析插件时就失败。
 .\gradlew.bat build
-.\gradlew.bat test     # 66 项纯 Java 单元测试（不需要游戏、不需要联网）
+.\gradlew.bat test     # 95 项纯 Java 单元测试（不需要游戏、不需要联网）
 ```
 
 `gradle build` 会在 `test` 之后触发 `remapJar`；产物里已经包含 JLayer 的 81 个类文件
 （`javazoom/jl/...`），没有遗留的签名文件，也没有被删掉的旧引擎类——这几点可以用
-`jar tf build/libs/bbsvoice-1.0-<版本>.jar` 直接核对。
+`jar tf build/libs/bbsvoice-1.1-<版本>.jar` 直接核对。
 
 ### 26.3 与 1.20.4 的结构差异（移植时都会撞到）
 
@@ -332,7 +332,7 @@ copy '<你的整合包目录>\mods\bbs-2.3.2-26.3.jar' 'libs\bbs-2.3.2-26.3.jar'
 # -MinecraftDir 指向你自己的 .minecraft（也可以设 $env:BBSVOICE_MC，或写进 git-ignored 的 tools\local.ps1）
 # -VersionName 选版本档案（PCL 隔离安装一个版本一个目录）；Java 版本与 assetIndex 都从该档案里读
 powershell -File tools/RunSelfTest.ps1 -MinecraftDir '<你的 .minecraft 目录>' -VersionName BBS
-powershell -File tools/RunSelfTest.ps1 -MinecraftDir '<你的 .minecraft 目录>' -VersionName 26.3 -ModJar build\libs\bbsvoice-1.0-26.3.jar
+powershell -File tools/RunSelfTest.ps1 -MinecraftDir '<你的 .minecraft 目录>' -VersionName 26.3 -ModJar build\libs\bbsvoice-1.1-26.3.jar
 # 装进 versions/<版本>/mods（会先清掉旧的同名 jar，避免同 id 两份导致 Fabric 拒绝启动），
 # 带 -Dbbsvoice.selftest=1 启动，自检完写 bbsvoice-selftest.txt 并自动退出
 ```
