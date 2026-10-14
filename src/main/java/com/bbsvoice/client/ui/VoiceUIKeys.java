@@ -1,6 +1,7 @@
 package com.bbsvoice.client.ui;
 
-import com.bbsvoice.tts.edge.EdgeVoice;
+import com.bbsvoice.tts.Voice;
+import com.bbsvoice.tts.VoiceCatalog;
 import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 
@@ -19,6 +20,7 @@ public class VoiceUIKeys
     public static final IKey TEXT_MESSAGE = L10n.lang("bbsvoice.ui.text.message");
     public static final IKey EDIT_TEXT = L10n.lang("bbsvoice.ui.edit_text");
     public static final IKey CHARACTER = L10n.lang("bbsvoice.ui.character");
+    public static final IKey VOICE_PICKER_TOOLTIP = L10n.lang("bbsvoice.ui.voice.tooltip");
     public static final IKey MIX = L10n.lang("bbsvoice.ui.mix");
     public static final IKey PITCH = L10n.lang("bbsvoice.ui.pitch");
     public static final IKey VOLUME = L10n.lang("bbsvoice.ui.volume");
@@ -54,9 +56,9 @@ public class VoiceUIKeys
 
     static
     {
-        for (EdgeVoice voice : EdgeVoice.all())
+        for (Voice voice : VoiceCatalog.all())
         {
-            VOICES.put(voice.id, L10n.lang(voice.labelKey, voice.labelFallback, null));
+            VOICES.put(voice.id(), L10n.lang(voice.labelKey(), voice.labelFallback(), null));
         }
     }
 

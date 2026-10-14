@@ -8,7 +8,9 @@ import com.bbsvoice.client.voice.VoiceAudioCache;
 import com.bbsvoice.client.voice.VoiceClientClip;
 import com.bbsvoice.client.voice.VoiceClipFit;
 import com.bbsvoice.tts.WavFile;
+import com.bbsvoice.tts.VoiceCatalog;
 import com.bbsvoice.tts.edge.EdgeVoice;
+import com.bbsvoice.tts.external.ExternalVoice;
 import com.bbsvoice.tts.speech.ProsodySpan;
 import com.bbsvoice.voice.ClipFitRules;
 import com.bbsvoice.voice.VoiceClip;
@@ -197,10 +199,31 @@ public final class BBSVoiceSelfTest
         check("legacy film: unknown keys ignored", "旧片子".equals(legacy.text.get()), legacy.text.get());
         check("legacy film: old voice id falls back", EdgeVoice.exists(legacy.edgeVoice().id), legacy.edgeVoice().id);
 
+        /*
+         * 2c. the speaker catalog spans two engines now. Both halves of that are offline checks: the
+         * character voice must resolve to itself (not silently to Xiaoxiao), and the dispatch must send
+         * it to the external backend rather than into Edge's handshake.
+         */
+        check("voice catalog: the character voice is selectable",
+            VoiceCatalog.exists(ExternalVoice.MANBO.id()) && VoiceCatalog.byId(ExternalVoice.MANBO.id()) == ExternalVoice.MANBO,
+            ExternalVoice.MANBO.id());
+        check("voice catalog: the engines are dispatched apart",
+            VoiceCatalog.isExternal(ExternalVoice.MANBO.id()) && !VoiceCatalog.isExternal(EdgeVoice.DEFAULT_ID),
+            "character=" + VoiceCatalog.isExternal(ExternalVoice.MANBO.id()) + " edge=" + VoiceCatalog.isExternal(EdgeVoice.DEFAULT_ID));
+
         /* 3. language files load after the addon reload */
         String text = VoiceUIKeys.TEXT.get();
 
         check("l10n loaded", text != null && !text.isEmpty() && !"bbsvoice.ui.text".equals(text), text);
+
+        /*
+         * The unit tests read the json from the classpath; only this one proves the string pack shipped
+         * inside the jar is actually the one L10n loaded, which is the difference between the picker
+         * saying "曼波 · 角色配音" and it saying "bbsvoice.voice.ext:manbo".
+         */
+        check("l10n names the character voice",
+            !VoiceUIKeys.voice(ExternalVoice.MANBO.id()).get().startsWith("bbsvoice."),
+            VoiceUIKeys.voice(ExternalVoice.MANBO.id()).get());
 
         /* 4. our own source pack is registered */
         try (InputStream stream = BBSMod.getProvider().getAsset(new Link(BBSVoice.MOD_ID, "strings/zh_cn.json")))
@@ -426,7 +449,7 @@ public final class BBSVoiceSelfTest
         VoiceClip clip = new VoiceClip();
 
         clip.voice.text.set(data.text.get());
-        clip.voice.setVoice(data.edgeVoice());
+        clip.voice.setVoice(VoiceCatalog.byId(data.voice.get()));
 
         return clip;
     }

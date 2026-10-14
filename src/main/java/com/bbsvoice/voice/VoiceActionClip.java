@@ -1,6 +1,7 @@
 package com.bbsvoice.voice;
 
 import com.bbsvoice.BBSVoiceSettings;
+import com.bbsvoice.tts.VoiceCatalog;
 import mchorse.bbs_mod.actions.types.ActionClip;
 import mchorse.bbs_mod.utils.clips.Clip;
 
@@ -25,7 +26,7 @@ public class VoiceActionClip extends ActionClip implements IVoiceClip
         this.frequency.set(1);
 
         this.add(this.voice);
-        this.voice.setVoice(BBSVoiceSettings.defaultEdgeVoice());
+        this.voice.setVoice(VoiceCatalog.byId(BBSVoiceSettings.defaultVoice()));
     }
 
     @Override

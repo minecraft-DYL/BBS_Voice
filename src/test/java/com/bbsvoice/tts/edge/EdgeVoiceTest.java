@@ -2,15 +2,8 @@ package com.bbsvoice.tts.edge;
 
 import org.junit.jupiter.api.Test;
 
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -19,8 +12,11 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The voice list is the one place where a wrong string is not a display bug but a request the service
- * refuses, so it is tested together with the language files that name the voices.
+ * The Edge voice list is the one place where a wrong string is not a display bug but a request the
+ * service refuses, so the ids themselves are asserted here.
+ *
+ * <p>Completeness of the <em>combined</em> list (Edge voices plus character voices, against both
+ * language files) moved to {@code VoiceCatalogTest} once the catalog stopped being Edge-only.</p>
  */
 class EdgeVoiceTest
 {
@@ -77,43 +73,6 @@ class EdgeVoiceTest
     }
 
     @Test
-    void everyVoiceIsNamedInEveryLanguageFile()
-    {
-        for (String language : new String[] { "zh_cn", "en_us" })
-        {
-            Set<String> keys = voiceKeys(language);
-
-            for (EdgeVoice voice : EdgeVoice.all())
-            {
-                assertTrue(keys.contains(voice.labelKey), voice.labelKey + " is missing from " + language + ".json");
-                assertFalse(voice.labelFallback.isBlank(), voice.id + " has no fallback label");
-            }
-        }
-    }
-
-    @Test
-    void noLanguageFileNamesAVoiceThatNoLongerExists()
-    {
-        /* The mirror of the test above: a stale key means a renamed or removed voice was left behind. */
-        List<String> stale = new ArrayList<>();
-
-        for (String language : new String[] { "zh_cn", "en_us" })
-        {
-            for (String key : voiceKeys(language))
-            {
-                String id = key.substring("bbsvoice.voice.".length());
-
-                if (!EdgeVoice.exists(id) && !stale.contains(language + ":" + id))
-                {
-                    stale.add(language + ":" + id);
-                }
-            }
-        }
-
-        assertEquals(List.of(), stale, "stale voice translation keys");
-    }
-
-    @Test
     void indexOfFindsEveryVoiceAndDefaultsToTheFirst()
     {
         for (int i = 0; i < EdgeVoice.all().length; i++)
@@ -125,31 +84,16 @@ class EdgeVoiceTest
         assertEquals(0, EdgeVoice.indexOf(null));
     }
 
-    /** @return every {@code bbsvoice.voice.*} key in the given language file. */
-    private static Set<String> voiceKeys(String language)
+    @Test
+    void theMultilingualVoicesAreInTheListAndWellaShaped()
     {
-        String path = "/assets/bbsvoice/strings/" + language + ".json";
-
-        try (InputStream in = EdgeVoiceTest.class.getResourceAsStream(path))
-        {
-            assertNotNull(in, path + " is not on the classpath");
-
-            String json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-            Matcher matcher = Pattern.compile("\"(bbsvoice\\.voice\\.[^\"]+)\"").matcher(json);
-            Set<String> keys = new HashSet<>();
-
-            while (matcher.find())
-            {
-                keys.add(matcher.group(1));
-            }
-
-            assertFalse(keys.isEmpty(), "no voice keys found in " + path);
-
-            return keys;
-        }
-        catch (Exception e)
-        {
-            throw new AssertionError("could not read " + path, e);
-        }
+        /*
+         * They are the only way to get a non-Chinese-sounding speaker for a Chinese line, and they are
+         * still pasted into the SSML, so they must satisfy the same shape as every other id - which the
+         * test above already asserts for the whole array. This one pins that they were added at all.
+         */
+        assertTrue(EdgeVoice.all().length >= 26, "the multilingual voices should be in: " + EdgeVoice.all().length);
+        assertSame(EdgeVoice.EN_US_AVA_ML, EdgeVoice.byId("en-US-AvaMultilingualNeural"));
+        assertSame(EdgeVoice.EN_AU_WILLIAM_ML, EdgeVoice.byId("en-AU-WilliamMultilingualNeural"));
     }
 }

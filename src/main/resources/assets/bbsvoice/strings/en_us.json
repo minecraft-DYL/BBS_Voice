@@ -24,6 +24,7 @@
     "bbsvoice.ui.text.message": "Multi line text is allowed, punctuation becomes pauses. Editing the text makes Edge synthesise it again",
     "bbsvoice.ui.edit_text": "Edit text",
     "bbsvoice.ui.character": "Voice",
+    "bbsvoice.ui.voice.tooltip": "Opens a searchable voice list: the 26 Edge online voices plus character voices such as Manbo",
     "bbsvoice.ui.mix": "Mix",
     "bbsvoice.ui.pitch": "Pitch",
     "bbsvoice.ui.volume": "Volume",
@@ -76,5 +77,20 @@
     "bbsvoice.voice.zh-HK-WanLungNeural": "WanLung - Cantonese male",
     "bbsvoice.voice.zh-TW-HsiaoChenNeural": "HsiaoChen - Taiwan female",
     "bbsvoice.voice.zh-TW-HsiaoYuNeural": "HsiaoYu - Taiwan female",
-    "bbsvoice.voice.zh-TW-YunJheNeural": "YunJhe - Taiwan male"
+    "bbsvoice.voice.zh-TW-YunJheNeural": "YunJhe - Taiwan male",
+
+    "bbsvoice.voice.en-US-AvaMultilingualNeural": "Ava - multilingual female",
+    "bbsvoice.voice.en-US-AndrewMultilingualNeural": "Andrew - multilingual male",
+    "bbsvoice.voice.en-US-EmmaMultilingualNeural": "Emma - multilingual female",
+    "bbsvoice.voice.en-US-BrianMultilingualNeural": "Brian - multilingual male",
+    "bbsvoice.voice.en-AU-WilliamMultilingualNeural": "William - multilingual male, Australian",
+    "bbsvoice.voice.de-DE-FlorianMultilingualNeural": "Florian - multilingual male",
+    "bbsvoice.voice.de-DE-SeraphinaMultilingualNeural": "Seraphina - multilingual female",
+    "bbsvoice.voice.fr-FR-RemyMultilingualNeural": "Remy - multilingual male",
+    "bbsvoice.voice.fr-FR-VivienneMultilingualNeural": "Vivienne - multilingual female",
+    "bbsvoice.voice.it-IT-GiuseppeMultilingualNeural": "Giuseppe - multilingual male",
+    "bbsvoice.voice.ko-KR-HyunsuMultilingualNeural": "Hyunsu - multilingual male",
+    "bbsvoice.voice.pt-BR-ThalitaMultilingualNeural": "Thalita - multilingual female",
+
+    "bbsvoice.voice.ext:manbo": "Manbo - character voice"
 }

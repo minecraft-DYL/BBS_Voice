@@ -3,6 +3,7 @@ package com.bbsvoice.tts;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -65,8 +66,12 @@ public final class WavFile
     /** Reads a simple 16 bit mono/stereo PCM wav back into mono samples (used by the tests). */
     public static short[] read(File file) throws IOException
     {
-        byte[] bytes = java.nio.file.Files.readAllBytes(file.toPath());
+        return read(java.nio.file.Files.readAllBytes(file.toPath()));
+    }
 
+    /** Reads a wav held in memory — which is how a service's answer arrives. */
+    public static short[] read(byte[] bytes)
+    {
         if (bytes.length < 44)
         {
             return new short[0];
@@ -74,24 +79,28 @@ public final class WavFile
 
         int channels = bytes[22] | (bytes[23] << 8);
         int bits = bytes[34] | (bytes[35] << 8);
+
+        channels = channels > 0 ? channels : 1;
+        bits = bits > 0 ? bits : 16;
+
         int offset = 12;
 
         while (offset + 8 <= bytes.length)
         {
-            String id = new String(bytes, offset, 4, "US-ASCII");
-            int size = (bytes[offset + 4] & 0xff) | ((bytes[offset + 5] & 0xff) << 8)
-                | ((bytes[offset + 6] & 0xff) << 16) | ((bytes[offset + 7] & 0xff) << 24);
+            String id = new String(bytes, offset, 4, StandardCharsets.US_ASCII);
+            int size = intAt(bytes, offset + 4);
 
             if (id.equals("data"))
             {
                 offset += 8;
 
-                int frames = Math.min(size, bytes.length - offset) / (channels * (bits / 8));
+                int frame = channels * (bits / 8);
+                int frames = Math.min(size, bytes.length - offset) / frame;
                 short[] out = new short[frames];
 
                 for (int i = 0; i < frames; i++)
                 {
-                    int index = offset + i * channels * (bits / 8);
+                    int index = offset + i * frame;
                     out[i] = (short) ((bytes[index] & 0xff) | (bytes[index + 1] << 8));
                 }
 
@@ -102,6 +111,43 @@ public final class WavFile
         }
 
         return new short[0];
+    }
+
+    /** @return whether these bytes carry a PCM wav, decided by magic bytes. */
+    public static boolean isWav(byte[] bytes)
+    {
+        return bytes.length >= 12
+            && "RIFF".equals(new String(bytes, 0, 4, StandardCharsets.US_ASCII))
+            && "WAVE".equals(new String(bytes, 8, 4, StandardCharsets.US_ASCII));
+    }
+
+    /** @return the rate the wav was recorded at, or 24000 when the header cannot be read. */
+    public static int sampleRate(byte[] bytes)
+    {
+        int offset = 12;
+
+        while (offset + 24 <= bytes.length)
+        {
+            String id = new String(bytes, offset, 4, StandardCharsets.US_ASCII);
+            int size = intAt(bytes, offset + 4);
+
+            if (id.equals("fmt "))
+            {
+                int rate = intAt(bytes, offset + 12);
+
+                return rate > 0 ? rate : 24000;
+            }
+
+            offset += 8 + size + (size & 1);
+        }
+
+        return 24000;
+    }
+
+    private static int intAt(byte[] bytes, int offset)
+    {
+        return (bytes[offset] & 0xff) | ((bytes[offset + 1] & 0xff) << 8)
+            | ((bytes[offset + 2] & 0xff) << 16) | ((bytes[offset + 3] & 0xff) << 24);
     }
 
     /**
@@ -220,6 +266,55 @@ public final class WavFile
         catch (IOException e)
         {
             return false;
+        }
+    }
+
+    /** @return the loudest sample, 0 for silence. */
+    public static int peak(short[] samples)
+    {
+        int peak = 0;
+
+        for (short sample : samples)
+        {
+            int value = Math.abs((int) sample);
+
+            if (value > peak)
+            {
+                peak = value;
+            }
+        }
+
+        return peak;
+    }
+
+    /**
+     * Rejects a truncated or non-wav file, so a failed render is never cached as a finished one.
+     *
+     * <p>The voice cache treats any file longer than a wav header as ready, which is what makes this a
+     * gate rather than a nicety: a half written file would otherwise be served forever, and the line
+     * would look permanently synthesised while playing nothing.</p>
+     */
+    public static void validate(File file) throws IOException
+    {
+        if (!file.isFile() || file.length() <= 44)
+        {
+            throw new IOException("wrote " + (file.isFile() ? file.length() : 0) + " bytes");
+        }
+
+        byte[] head = new byte[12];
+
+        try (InputStream in = new FileInputStream(file))
+        {
+            if (in.read(head) != head.length)
+            {
+                throw new IOException("truncated wav header");
+            }
+        }
+
+        if (!isWav(head))
+        {
+            throw new IOException("not a wav: " + new String(head, 0, 4, StandardCharsets.US_ASCII)
+                + "/" + new String(head, 8, 4, StandardCharsets.US_ASCII));
         }
     }
 

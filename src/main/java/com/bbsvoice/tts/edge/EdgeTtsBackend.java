@@ -6,10 +6,7 @@ import com.bbsvoice.tts.speech.SpeechRequest;
 import com.bbsvoice.tts.speech.SsmlBuilder;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 /**
@@ -54,56 +51,12 @@ public final class EdgeTtsBackend implements SpeechBackend
         byte[] mp3 = EdgeTtsClient.synthesize(ssml, TIMEOUT);
         Mp3Decoder.Pcm pcm = Mp3Decoder.decode(mp3);
 
-        if (peak(pcm.samples) == 0)
+        if (WavFile.peak(pcm.samples) == 0)
         {
             throw new IOException("Edge speech returned silence for " + pcm.durationSeconds() + "s");
         }
 
         WavFile.write(out, pcm.samples, pcm.sampleRate);
-        validate(out);
-    }
-
-    private static int peak(short[] samples)
-    {
-        int peak = 0;
-
-        for (short sample : samples)
-        {
-            int value = Math.abs((int) sample);
-
-            if (value > peak)
-            {
-                peak = value;
-            }
-        }
-
-        return peak;
-    }
-
-    /** Rejects a truncated or non-wav result instead of caching it. */
-    private static void validate(File out) throws IOException
-    {
-        if (!out.isFile() || out.length() <= 44)
-        {
-            throw new IOException("wrote " + (out.isFile() ? out.length() : 0) + " bytes");
-        }
-
-        byte[] head = new byte[12];
-
-        try (InputStream in = new FileInputStream(out))
-        {
-            if (in.read(head) != head.length)
-            {
-                throw new IOException("truncated wav header");
-            }
-        }
-
-        String riff = new String(head, 0, 4, StandardCharsets.US_ASCII);
-        String wave = new String(head, 8, 4, StandardCharsets.US_ASCII);
-
-        if (!"RIFF".equals(riff) || !"WAVE".equals(wave))
-        {
-            throw new IOException("not a wav: " + riff + "/" + wave);
-        }
+        WavFile.validate(out);
     }
 }

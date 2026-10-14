@@ -1,6 +1,7 @@
 package com.bbsvoice.voice;
 
 import com.bbsvoice.BBSVoiceSettings;
+import com.bbsvoice.tts.VoiceCatalog;
 import mchorse.bbs_mod.camera.clips.CameraClip;
 import mchorse.bbs_mod.camera.data.Position;
 import mchorse.bbs_mod.utils.clips.Clip;
@@ -23,7 +24,7 @@ public class VoiceClip extends CameraClip implements IVoiceClip
         super();
 
         this.add(this.voice);
-        this.voice.setVoice(BBSVoiceSettings.defaultEdgeVoice());
+        this.voice.setVoice(VoiceCatalog.byId(BBSVoiceSettings.defaultVoice()));
     }
 
     @Override

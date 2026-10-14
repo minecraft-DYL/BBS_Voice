@@ -24,6 +24,7 @@
     "bbsvoice.ui.text.message": "支持多行文本，标点会变成停顿。文本改动后会重新联网合成一次",
     "bbsvoice.ui.edit_text": "编辑文本",
     "bbsvoice.ui.character": "配音人物",
+    "bbsvoice.ui.voice.tooltip": "点开可搜索的音色列表：26 个 Edge 在线音色，加上曼波等角色音",
     "bbsvoice.ui.mix": "混音",
     "bbsvoice.ui.pitch": "音调",
     "bbsvoice.ui.volume": "音量",
@@ -76,5 +77,20 @@
     "bbsvoice.voice.zh-HK-WanLungNeural": "雲龍 · 粤语男声",
     "bbsvoice.voice.zh-TW-HsiaoChenNeural": "曉臻 · 台湾女声",
     "bbsvoice.voice.zh-TW-HsiaoYuNeural": "曉雨 · 台湾女声",
-    "bbsvoice.voice.zh-TW-YunJheNeural": "雲哲 · 台湾男声"
+    "bbsvoice.voice.zh-TW-YunJheNeural": "雲哲 · 台湾男声",
+
+    "bbsvoice.voice.en-US-AvaMultilingualNeural": "Ava · 多语种女声",
+    "bbsvoice.voice.en-US-AndrewMultilingualNeural": "Andrew · 多语种男声",
+    "bbsvoice.voice.en-US-EmmaMultilingualNeural": "Emma · 多语种女声",
+    "bbsvoice.voice.en-US-BrianMultilingualNeural": "Brian · 多语种男声",
+    "bbsvoice.voice.en-AU-WilliamMultilingualNeural": "William · 多语种男声（澳洲）",
+    "bbsvoice.voice.de-DE-FlorianMultilingualNeural": "Florian · 多语种男声",
+    "bbsvoice.voice.de-DE-SeraphinaMultilingualNeural": "Seraphina · 多语种女声",
+    "bbsvoice.voice.fr-FR-RemyMultilingualNeural": "Remy · 多语种男声",
+    "bbsvoice.voice.fr-FR-VivienneMultilingualNeural": "Vivienne · 多语种女声",
+    "bbsvoice.voice.it-IT-GiuseppeMultilingualNeural": "Giuseppe · 多语种男声",
+    "bbsvoice.voice.ko-KR-HyunsuMultilingualNeural": "Hyunsu · 多语种男声",
+    "bbsvoice.voice.pt-BR-ThalitaMultilingualNeural": "Thalita · 多语种女声",
+
+    "bbsvoice.voice.ext:manbo": "曼波 · 角色配音"
 }
