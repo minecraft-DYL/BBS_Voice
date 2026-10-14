@@ -10,6 +10,8 @@
   What it does, in order:
     1. preflight: jars + notes + tags exist, working tree is clean
     2. git push origin main / fabric-26.3 / the two release tags
+       (the tags go out with --force-with-lease: they are re-pointed whenever a release is replaced
+       before anyone could have downloaded it, and a plain push is rejected as clobbering)
     3. create the GitHub Releases from build/release/RELEASE-*.md and attach the jars
     4. verify by listing what the API sees
 
@@ -61,8 +63,23 @@ if (git status --porcelain) { throw 'working tree is dirty - commit before publi
 Write-Host '--- push ---' -ForegroundColor Cyan
 git push origin main
 git push origin fabric-26.3
-git push origin ($releases.Tag)
+
 if ($LASTEXITCODE -ne 0) { throw 'push failed (credentials?)' }
+
+# The release tags are re-pointed whenever a release gets replaced before anyone could have downloaded
+# it - that already happened once, when the voice catalog feature landed after the first tagging. So a
+# plain push is rejected as clobbering; --force-with-lease is the safe form (it still fails if somebody
+# else moved the tag), with --force only for a clone that has no remote-tracking value to compare to.
+foreach ($r in $releases) {
+    git push --force-with-lease origin ($r.Tag)
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  --force-with-lease unavailable, falling back to --force for $($r.Tag)" -ForegroundColor Yellow
+        git push --force origin ($r.Tag)
+    }
+
+    if ($LASTEXITCODE -ne 0) { throw "push of tag $($r.Tag) failed" }
+}
 
 $api = "https://api.github.com/repos/$Owner/$Repo"
 $headers = @{
