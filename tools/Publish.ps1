@@ -42,9 +42,11 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
+# The releases this script owns. 1.0-* is deliberately absent: it shipped before these tags and is kept as
+# the historical version, so never run this with -RemoveLegacy - that deletes every release not listed here.
 $releases = @(
-    @{ Tag = '1.0-1.20.4Fabric'; Jar = 'build/release/bbsvoice-1.0-1.20.4.jar'; Notes = 'docs/releases/1.0-1.20.4Fabric.md' },
-    @{ Tag = '1.0-26.3Fabric';   Jar = 'build/release/bbsvoice-1.0-26.3.jar';   Notes = 'docs/releases/1.0-26.3Fabric.md' }
+    @{ Tag = '1.1-1.20.4Fabric'; Jar = 'build/release/bbsvoice-1.1-1.20.4.jar'; Notes = 'docs/releases/1.1-1.20.4Fabric.md' },
+    @{ Tag = '1.1-26.3Fabric';   Jar = 'build/release/bbsvoice-1.1-26.3.jar';   Notes = 'docs/releases/1.1-26.3Fabric.md' }
 )
 
 if (-not $Token) { throw "No token. Pass -Token or set `$env:GITHUB_TOKEN (needs 'repo' or 'Contents: write')." }
