@@ -92,5 +92,17 @@
     "bbsvoice.voice.ko-KR-HyunsuMultilingualNeural": "Hyunsu - multilingual male",
     "bbsvoice.voice.pt-BR-ThalitaMultilingualNeural": "Thalita - multilingual female",
 
-    "bbsvoice.voice.ext:manbo": "Manbo - character voice"
+    "bbsvoice.voice.ext:manbo": "Manbo - character voice",
+
+    "bbsvoice.hint.rate_limited": "Rate limited by the service (HTTP 429): wait ~15s, or synthesise fewer lines at once",
+    "bbsvoice.hint.blocked": "The service refused this render (HTTP 401/403, anti-abuse): try again in a few minutes",
+    "bbsvoice.hint.unsupported_line": "This voice could not read this line: pick another voice, or drop rare characters",
+    "bbsvoice.hint.service_down": "Service-side error (HTTP 5xx), not this mod: try again later",
+    "bbsvoice.hint.timeout": "Synthesis timed out: the service did not answer in time (slow link or throttling), try again",
+    "bbsvoice.hint.offline": "Cannot reach the service (DNS failure or refused connection): check network / proxy / firewall",
+    "bbsvoice.hint.empty_audio": "The service returned no audio (silence or an empty stream): press Re-synthesise again",
+    "bbsvoice.hint.odd_answer": "The endpoint answered with neither audio nor a download url: it may have changed or be down",
+    "bbsvoice.hint.local_audio": "Local audio decoding failed (incomplete data from the service): re-synthesise",
+    "bbsvoice.hint.external_down": "The third-party character voice failed (rate limits or downtime): switch back to an Edge voice",
+    "bbsvoice.hint.unknown": "The reason was not recognised: press Re-synthesise once more"
 }
